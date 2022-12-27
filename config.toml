@@ -12,18 +12,18 @@ build-mindetach-module = false
 [YouTube]
 enabled = true                                                        # add 'enabled = false' key to entries to not build them
 build-mode = "both"                                                   # 'both', 'apk' or 'module'
-excluded-patches = "hide-time-and-seekbar enable-wide-searchbar hide-create-button
+excluded-patches = """hide-time-and-seekbar enable-wide-searchbar hide-create-button
 hide-endscreen-cards hide-watch-in-vr disable-fullscreen-panels
 hide-artist-card comments tablet-mini-player hide-watermark
 hide-info-cards custom-branding old-quality-layout seekbar-tapping
-custom-video-buffer debugging always-autorepeat"                                        # whitespace seperated list of patches to exclude
-included-patches = "hide-video-buttons hide-shorts-button disable-startup-shorts-player
+custom-video-buffer debugging always-autorepeat"""                                        # whitespace seperated list of patches to exclude
+included-patches = """hide-video-buttons hide-shorts-button disable-startup-shorts-player
 hide-cast-button sponsorblock hide-autoplay-button hide-album-cards
 disable-auto-player-popup-panels disable-auto-captions return-youtube-dislike
 theme hide-email-address hide-my-mix premium-heading general-ads video-ads
 swipe-controls downloads seekbar-tapping open-links-directly client-spoof
 minimized-playback custom-video-speed remember-video-quality hdr-auto-brightness
-hide-crowdfunding-box"                                            # whitespace seperated list of patches to include
+hide-crowdfunding-box"""                                            # whitespace seperated list of patches to include
 version = "auto"                                                      # 'auto', 'latest' or a custom one like '17.40.41'
 exclusive-patches = false                                             # excludes all patches by default
 microg-patch = "microg-support"
