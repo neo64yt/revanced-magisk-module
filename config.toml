@@ -38,23 +38,27 @@ module-prop-name = "ytmusicrv-arm-magisk"
 arch = "arm-v7a"
 
 [Twitter]
-build-mode = "none"
+enabled = false
+build-mode = "apk"
 excluded-patches = "hide-views-stats"
 version = "auto"
 apkmirror-dlurl = "https://www.apkmirror.com/apk/twitter-inc/twitter/"
 
 [Reddit]
-build-mode = "none"
+enabled = false
+build-mode = "apk"
 version = "auto"
 apkmirror-dlurl = "https://www.apkmirror.com/apk/redditinc/reddit/"
 
 [Twitch]
-build-mode = "none"
+enabled = false
+build-mode = "apk"
 version = "auto"
 apkmirror-dlurl = "https://www.apkmirror.com/apk/twitch-interactive-inc/twitch/"
 
 [TikTok]
-version = "none"
+enabled = false
+version = "apk"
 apkmirror-dlurl = "https://www.apkmirror.com/apk/tiktok-pte-ltd/tik-tok-including-musical-ly/"
 
 [Spotify]
