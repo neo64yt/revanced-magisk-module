@@ -2,8 +2,7 @@ name: CI
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 16 * * *"
-
+    - cron: "* 12 * * 5"
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -17,12 +16,11 @@ jobs:
         id: should_build
         shell: bash
         run: |
+          source build.conf
           source utils.sh
-          toml_prep "$(cat config.toml)"
 
           is_youtube_latest() {
-            v=$(toml_get "$(toml_get_table "YouTube")" "version") || version=""
-            if [ "$v" = latest ]; then
+            if [ "${YOUTUBE_MODE%/*}" = latest ]; then
               declare -r cur_yt=$(sed -n 's/.*YouTube: \(.*\)/\1/p' build.md | xargs)
               [ -z "$cur_yt" ] && return 1 # empty, fail=>dont build
               declare -r last_ver=$(get_apk_vers "https://www.apkmirror.com/uploads/?appcategory=youtube" | get_largest_ver)
@@ -36,8 +34,7 @@ jobs:
           }
 
           is_patches_latest() {
-            PATCHES_SRC=$(toml_get "$(toml_get_table "")" patches-source) || PATCHES_SRC="revanced/revanced-patches"
-            declare -r last_patches_url=$(wget -nv --header="Authorization: token ${{ secrets.GITHUB_TOKEN }}" -O- https://api.github.com/repos/${PATCHES_SRC}/releases/latest | json_get 'browser_download_url' | grep 'jar')
+            declare -r last_patches_url=$(wget -nv -O- https://api.github.com/repos/revanced/revanced-patches/releases/latest | json_get 'browser_download_url' 'jar')
             declare -r last_patches=${last_patches_url##*/}
             cur_patches=$(sed -n 's/.*Patches: \(.*\)/\1/p' build.md | xargs)
 
@@ -61,8 +58,6 @@ jobs:
       SHOULD_BUILD: ${{ steps.should_build.outputs.SHOULD_BUILD }}
 
   build:
-    permissions: write-all
     needs: check
     uses: ./.github/workflows/build.yml
     if: ${{ needs.check.outputs.SHOULD_BUILD == 1 }}
-    secrets: inherit
