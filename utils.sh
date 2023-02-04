@@ -10,6 +10,8 @@ if [ "${GITHUB_TOKEN:-}" ]; then GH_HEADER="Authorization: token ${GITHUB_TOKEN}
 GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-"j-hc/revanced-magisk-module"}
 NEXT_VER_CODE=${NEXT_VER_CODE:-$(date +'%Y%m%d')}
 WGET_HEADER="User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0"
+REBUILD=false
+OS=$(uname -o)
 
 SERVICE_SH=$(cat $MODULE_SCRIPTS_DIR/service.sh)
 CUSTOMIZE_SH=$(cat $MODULE_SCRIPTS_DIR/customize.sh)
@@ -33,8 +35,10 @@ toml_get() {
 }
 # ---------------------------------------------------
 
+pr() { echo -e "\033[0;32m[+] ${1}\033[0m"; }
+
 get_prebuilts() {
-	echo "Getting prebuilts"
+	pr "Getting prebuilts"
 	local rv_cli_url rv_integrations_url rv_patches rv_patches_changelog rv_patches_dl rv_patches_url
 	rv_cli_url=$(gh_req "https://api.github.com/repos/j-hc/revanced-cli/releases/latest" - | json_get 'browser_download_url') || return 1
 	RV_CLI_JAR="${PREBUILTS_DIR}/${rv_cli_url##*/}"
@@ -50,6 +54,7 @@ get_prebuilts() {
 	RV_PATCHES_JSON="${PREBUILTS_DIR}/patches-$(json_get 'tag_name' <<<"$rv_patches").json"
 	rv_patches_url=$(grep 'jar' <<<"$rv_patches_dl")
 	RV_PATCHES_JAR="${PREBUILTS_DIR}/${rv_patches_url##*/}"
+	[ -f "$RV_PATCHES_JAR" ] || REBUILD=true
 	log "Patches: ${rv_patches_url##*/}"
 	log "\n${rv_patches_changelog//# [/### [}\n"
 
@@ -57,6 +62,12 @@ get_prebuilts() {
 	dl_if_dne "$RV_INTEGRATIONS_APK" "$rv_integrations_url"
 	dl_if_dne "$RV_PATCHES_JAR" "$rv_patches_url"
 	dl_if_dne "$RV_PATCHES_JSON" "$(grep 'json' <<<"$rv_patches_dl")"
+
+	if [ "$OS" = Android ]; then
+		local arch
+		if [ "$(uname -m)" = aarch64 ]; then arch=arm64; else arch=arm; fi
+		dl_if_dne ${TEMP_DIR}/aapt2 https://github.com/rendiix/termux-aapt/raw/main/prebuilt-binary/${arch}/aapt2
+	fi
 }
 
 get_cmpr() {
@@ -122,7 +133,7 @@ semver_validate() {
 
 dl_if_dne() {
 	if [ ! -f "$1" ]; then
-		echo -e "\nGetting '$1' from '$2'"
+		pr "Getting '$1' from '$2'"
 		req "$2" "$1"
 	fi
 }
@@ -145,7 +156,7 @@ dl_apkmirror() {
 }
 get_apkmirror_vers() {
 	local apkmirror_category=$1 allow_alpha_version=$2
-	local vers
+	local vers apkm_resp
 	apkm_resp=$(req "https://www.apkmirror.com/uploads/?appcategory=${apkmirror_category}" -)
 	# apkm_name=$(echo "$apkm_resp" | sed -n 's;.*Latest \(.*\) Uploads.*;\1;p')
 	vers=$(sed -n 's;.*Version:</span><span class="infoSlide-value">\(.*\) </span>.*;\1;p' <<<"$apkm_resp")
@@ -166,11 +177,12 @@ get_apkmirror_pkg_name() { req "$1" - | sed -n 's;.*id=\(.*\)" class="accent_col
 
 # -------------------- uptodown --------------------
 get_uptodown_resp() { req "${1}/versions" -; }
-get_uptodown_vers() { sed -n 's;\(^.*\) <span>.*</span>.*;\1;p' <<<"$1"; }
+get_uptodown_vers() { sed -n 's;.*version>\(.*\)<\/span>$;\1;p' <<<"$1"; }
 dl_uptodown() {
 	local uptwod_resp=$1 version=$2 output=$3
-	url=$(echo "$uptwod_resp" | grep "${version} <span>" -B 1 | head -1 | sed -n 's;.*data-url="\(.*\)".*;\1;p')
-	url=$(req "$url" - | sed -n 's;.*data-url="\(.*\)".*;\1;p')
+	local url
+	url=$(echo "$uptwod_resp" | grep "${version}<\/span>" -B 2 | head -1 | sed -n 's;.*data-url="\(.*\)".*;\1;p') || return 1
+	url=$(req "$url" - | sed -n 's;.*data-url="\(.*\)".*;\1;p') || return 1
 	req "$url" "$output"
 }
 get_uptodown_pkg_name() {
@@ -184,7 +196,10 @@ patch_apk() {
 	local stock_input=$1 patched_apk=$2 patcher_args=$3
 	declare -r tdir=$(mktemp -d -p $TEMP_DIR)
 	local cmd="java -jar $RV_CLI_JAR --rip-lib x86_64 --rip-lib x86 --temp-dir=$tdir -c -a $stock_input -o $patched_apk -b $RV_PATCHES_JAR --keystore=ks.keystore $patcher_args"
-	echo "$cmd"
+	if [ "$OS" = Android ]; then
+		cmd+=" --custom-aapt2-binary=${TEMP_DIR}/aapt2"
+	fi
+	pr "$cmd"
 	if [ "${DRYRUN:-}" = true ]; then
 		cp -f "$stock_input" "$patched_apk"
 	else
@@ -194,12 +209,13 @@ patch_apk() {
 }
 
 zip_module() {
+	pr "Packing module ($app_name)"
 	local patched_apk=$1 module_name=$2 stock_apk=$3 pkg_name=$4 template_dir=$5
 	cp -f "$patched_apk" "${template_dir}/base.apk"
 	cp -f "$stock_apk" "${template_dir}/${pkg_name}.apk"
-	pushd "$template_dir" || abort "Module template dir not found"
-	zip -"$COMPRESSION_LEVEL" -FSr "../../${BUILD_DIR}/${module_name}" .
-	popd || :
+	pushd >/dev/null "$template_dir" || abort "Module template dir not found"
+	zip -"$COMPRESSION_LEVEL" -FSqr "../../${BUILD_DIR}/${module_name}" .
+	popd >/dev/null || :
 }
 
 build_rv() {
@@ -242,15 +258,15 @@ build_rv() {
 		fi
 	fi
 	if [ -z "$version" ]; then
-		echo "ERROR: empty version,not building ${app_name}."
+		pr "empty version, not building ${app_name}."
 		return 0
 	fi
-	echo "Choosing version '${version}' (${app_name})"
+	pr "Choosing version '${version}' (${app_name})"
 	local version_f=${version// /}
 	local stock_apk="${TEMP_DIR}/${pkg_name}-stock-${version_f}-${arch}.apk"
 	if [ ! -f "$stock_apk" ]; then
 		if [ "$dl_from" = apkmirror ]; then
-			echo "Downloading '${app_name}' from APKMirror"
+			pr "Downloading '${app_name}' from APKMirror"
 			if [ "$arch" = "all" ]; then
 				apkmirror_regex="APK</span>[^@]*@\([^#]*\)"
 			elif [ "$arch" = "arm64-v8a" ]; then
@@ -262,7 +278,7 @@ build_rv() {
 				abort "ERROR: Could not find any release of '${app_name}' with version '${version}' from APKMirror"
 			fi
 		elif [ "$dl_from" = uptodown ]; then
-			echo "Downloading '${app_name}' from Uptodown"
+			pr "Downloading '${app_name}' from Uptodown"
 			if ! dl_uptodown "$uptwod_resp" "$version" "$stock_apk"; then
 				abort "ERROR: Could not download ${app_name} from Uptodown"
 			fi
@@ -290,10 +306,10 @@ build_rv() {
 		build_mode_arr=(apk module)
 	fi
 
-	local patcher_args patched_apk
+	local patcher_args patched_apk build_mode
 	for build_mode in "${build_mode_arr[@]}"; do
 		patcher_args=("${p_patcher_args[@]}")
-		echo "Building '${app_name}' (${arch}) in '$build_mode' mode"
+		pr "Building '${app_name}' (${arch}) in '$build_mode' mode"
 		if [ "$microg_patch" ]; then
 			patched_apk="${TEMP_DIR}/${app_name_l}-${RV_BRAND_F}-${version_f}-${arch}-${build_mode}.apk"
 			if [ "$build_mode" = apk ]; then
@@ -307,16 +323,16 @@ build_rv() {
 		if [ "$build_mode" = module ]; then
 			patcher_args+=("--unsigned --rip-lib arm64-v8a --rip-lib armeabi-v7a")
 		fi
-		if [ ! -f "$patched_apk" ]; then
+		if [ ! -f "$patched_apk" ] || [ "$REBUILD" = true ]; then
 			if ! patch_apk "$stock_apk" "$patched_apk" "${patcher_args[*]}"; then
-				echo "BUILDING '${app_name}' FAILED"
+				pr "Building '${app_name}' failed!"
 				return 0
 			fi
 		fi
 		if [ "$build_mode" = apk ]; then
 			local apk_output="${BUILD_DIR}/${app_name_l}-${RV_BRAND_F}-v${version_f}-${arch}.apk"
 			cp -f "$patched_apk" "$apk_output"
-			echo "Built ${app_name} (${arch}) (non-root): '${apk_output}'"
+			pr "Built ${app_name} (${arch}) (non-root): '${apk_output}'"
 			continue
 		fi
 		local base_template upj
@@ -331,7 +347,7 @@ build_rv() {
 
 		uninstall_sh "$pkg_name" "$base_template"
 		service_sh "$pkg_name" "$version" "$base_template"
-		customize_sh "$pkg_name" "$version" "$base_template"
+		customize_sh "$pkg_name" "$version" "$arch" "$base_template"
 		module_prop \
 			"${args[module_prop_name]}" \
 			"${app_name} ${RV_BRAND}" \
@@ -341,9 +357,11 @@ build_rv() {
 			"$base_template"
 
 		local module_output="${app_name_l}-${RV_BRAND_F}-magisk-v${version}-${arch}.zip"
-		zip_module "$patched_apk" "$module_output" "$stock_apk" "$pkg_name" "$base_template"
+		if [ ! -f "$module_output" ] || [ "$REBUILD" = true ]; then
+			zip_module "$patched_apk" "$module_output" "$stock_apk" "$pkg_name" "$base_template"
+		fi
 
-		echo "Built ${app_name} (${arch}) (root): '${BUILD_DIR}/${module_output}'"
+		pr "Built ${app_name} (${arch}) (root): '${BUILD_DIR}/${module_output}'"
 	done
 }
 
@@ -354,7 +372,13 @@ join_args() {
 uninstall_sh() { echo "${UNINSTALL_SH//__PKGNAME/$1}" >"${2}/uninstall.sh"; }
 customize_sh() {
 	local s="${CUSTOMIZE_SH//__PKGNAME/$1}"
-	echo "${s//__PKGVER/$2}" >"${3}/customize.sh"
+	# shellcheck disable=SC2016,SC2001
+	if [ "$3" = "arm64-v8a" ]; then
+		s=$(sed 's/#arm$/abort "ERROR: Wrong arch\nYour device: arm\nModule: arm64"/g' <<<"$s")
+	elif [ "$3" = "arm-v7a" ]; then
+		s=$(sed 's/#arm64$/abort "ERROR: Wrong arch\nYour device: arm64\nModule: arm"/g' <<<"$s")
+	fi
+	echo "${s//__PKGVER/$2}" >"${4}/customize.sh"
 }
 service_sh() {
 	local s="${SERVICE_SH//__PKGNAME/$1}"
