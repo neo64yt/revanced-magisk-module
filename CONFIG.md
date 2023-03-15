@@ -1,15 +1,19 @@
 # Config
 
-Adding a new app is as easy as this:
+Three APK download websites are supported and adding a new app is as easy as this:
 ```toml
 [Some-App]
 apkmirror-dlurl = "https://www.apkmirror.com/apk/inc/app"
 ```
-
 or:
 ```toml
 [Some-App]
 uptodown-dlurl = "https://app.en.uptodown.com/android"
+```
+or:
+```toml
+[Some-App]
+apkmonk-dlurl = "https://www.apkmonk.com/app/com.app.app/"
 ```
 
 ## If you'd like to get to know more about other options:
@@ -37,7 +41,7 @@ exclusive-patches = false # exclude all patches by default. default: false
 apkmirror-dlurl = "https://www.apkmirror.com/apk/inc/app" # download url. if not set, uptodown dl url is used.
 uptodown-dlurl = "https://spotify.en.uptodown.com/android" # uptodown url. if not set, apkmirror dl url is used. apkmirror is prioritized
 module-prop-name = "some-app-magisk" # magisk module prop name. not required.
-merge-integrations = false # merge integrations. used if cant be auto detected. default: false
+merge-integrations = false # set false to never merge even when needed default: true
 dpi = "360-480dpi" # used to select apk variant from apkmirror. default: nodpi
 arch = "arm64-v8a" # 'arm64-v8a', 'arm-v7a' or 'all'. default: all
 # arch option is sometimes needed to be able to download the apks from apkmirror.
@@ -45,4 +49,4 @@ arch = "arm64-v8a" # 'arm64-v8a', 'arm-v7a' or 'all'. default: all
 ```
 
 # Building ReVanced Extended
-Use [`config-rv-ex.toml`](./config-rv-ex.toml) as the config by replacing config.toml with it
+Use [`config-rv-ex.toml`](./config-rv-ex.toml) as the config. Or you can run build.sh as: `./build.sh config-rv-ex.toml`

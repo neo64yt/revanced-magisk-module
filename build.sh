@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+trap "rm -rf temp/tmp.*; exit 1" INT
+
+if [ "${1:-}" = "clean" ]; then
+	rm -rf temp build logs
+	exit 0
+fi
 
 source utils.sh
-trap "rm -rf temp/tmp.*; exit 1" INT
 
 : >build.md
 
@@ -71,19 +76,23 @@ for table_name in $(toml_get_table_names); do
 		app_args[uptodown_dlurl]=${app_args[uptodown_dlurl]%/}
 		app_args[dl_from]=uptodown
 	} || app_args[uptodown_dlurl]=""
+	app_args[apkmonk_dlurl]=$(toml_get "$t" apkmonk-dlurl) && {
+		app_args[apkmonk_dlurl]=${app_args[apkmonk_dlurl]%/}
+		app_args[dl_from]=apkmonk
+	} || app_args[apkmonk_dlurl]=""
 	app_args[apkmirror_dlurl]=$(toml_get "$t" apkmirror-dlurl) && {
 		app_args[apkmirror_dlurl]=${app_args[apkmirror_dlurl]%/}
 		app_args[dl_from]=apkmirror
 	} || app_args[apkmirror_dlurl]=""
 	if [ -z "${app_args[dl_from]:-}" ]; then
-		abort "ERROR: neither 'apkmirror_dlurl' nor 'uptodown_dlurl' were not set for '$table_name'."
+		abort "ERROR: no 'apkmirror_dlurl', 'uptodown_dlurl', 'apkmonk_dlurl' were set for '$table_name'."
 	fi
 	app_args[arch]=$(toml_get "$t" arch) && {
 		if ! isoneof "${app_args[arch]}" all arm64-v8a arm-v7a; then
 			abort "ERROR: arch '${app_args[arch]}' is not a valid option for '${table_name}': only 'all', 'arm64-v8a', 'arm-v7a' is allowed"
 		fi
 	} || app_args[arch]="all"
-	app_args[merge_integrations]=$(toml_get "$t" merge-integrations) || app_args[merge_integrations]=false
+	app_args[merge_integrations]=$(toml_get "$t" merge-integrations) || app_args[merge_integrations]=true
 	app_args[dpi]=$(toml_get "$t" dpi) || app_args[dpi]="nodpi"
 	app_args[module_prop_name]=$(toml_get "$t" module-prop-name) || {
 		app_name_l=${app_args[app_name],,}

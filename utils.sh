@@ -36,7 +36,7 @@ toml_get() {
 pr() { echo -e "\033[0;32m[+] ${1}\033[0m"; }
 epr() {
 	echo -e "\033[0;31m[-] ${1}\033[0m"
-	if [ "${GITHUB_REPOSITORY:-}" ]; then echo -e "::error::utils.sh \033[0;31m[-] ${1}\033[0m\n"; fi
+	if [ "${GITHUB_REPOSITORY:-}" ]; then echo -e "::error::utils.sh [-] ${1}\n"; fi
 }
 abort() { echo >&2 -e "\033[0;31mABORT: $1\033[0m" && exit 1; }
 
@@ -121,8 +121,19 @@ set_prebuilts() {
 	HTMLQ="${TEMP_DIR}/htmlq"
 }
 
-req() { wget -nv -O "$2" --header="User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0" "$1"; }
-gh_req() { wget -nv -O "$2" --header="$GH_HEADER" "$1"; }
+_req() {
+	if [ "$2" = - ]; then
+		wget -nv -O "$2" --header="$3" "$1"
+	else
+		local dlp
+		dlp="$(dirname "$2")/tmp.$(basename "$2")"
+		wget -nv -O "$dlp" --header="$3" "$1"
+		mv -f "$dlp" "$2"
+	fi
+}
+req() { _req "$1" "$2" "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0"; }
+gh_req() { _req "$1" "$2" "$GH_HEADER"; }
+
 log() { echo -e "$1  " >>build.md; }
 get_largest_ver() {
 	local vers m
@@ -136,7 +147,8 @@ semver_validate() {
 	[ ${#ac} = 0 ]
 }
 get_patch_last_supported_ver() {
-	jq -r ".[] | select(.compatiblePackages[].name==\"${1}\" and .excluded==false) | .compatiblePackages[].versions" "$RV_PATCHES_JSON" | tr -d ' ,\t[]"' | sort -u | grep -v '^$' | get_largest_ver || return 1
+	jq -r ".[] | select(.compatiblePackages[].name==\"${1}\" and .excluded==false) | .compatiblePackages[].versions" "$RV_PATCHES_JSON" |
+		tr -d ' ,\t[]"' | grep -v '^$' | sort | uniq -c | sort -nr | head -1 | xargs | cut -d' ' -f2 || return 1
 }
 
 dl_if_dne() {
@@ -164,26 +176,20 @@ dl_apkmirror() {
 	[ "$arch" = universal ] && apparch=(universal noarch 'arm64-v8a + armeabi-v7a') || apparch=("$arch")
 	url="${url}/${url##*/}-${version//./-}-release/"
 	resp=$(req "$url" -) || return 1
-	for ((n = 2; n < 50; n++)); do
-		node=$($HTMLQ "div.table-row:nth-child($n)" -r "span.success:nth-child(3)" -r "span.signature:nth-child(n)" <<<"$resp")
+	for ((n = 2; n < 40; n++)); do
+		node=$($HTMLQ "div.table-row:nth-child($n)" -r "span:nth-child(n+3)" <<<"$resp")
 		if [ -z "$node" ]; then break; fi
 		app_table=$($HTMLQ --text --ignore-whitespace <<<"$node")
-		if [ "$(sed -n 3p <<<"$app_table")" = "$apkorbundle" ]; then
-			if [ "$apkorbundle" = APK ]; then
-				if [ "$(sed -n 8p <<<"$app_table")" = "$dpi" ] && isoneof "$(sed -n 6p <<<"$app_table")" "${apparch[@]}"; then
-					dlurl=https://www.apkmirror.com$($HTMLQ --attribute href "div:nth-child(1) > a:nth-child(1)" <<<"$node")
-					break
-				fi
-			elif [ "$apkorbundle" = BUNDLE ]; then
-				dlurl=https://www.apkmirror.com$($HTMLQ --attribute href "div:nth-child(1) > a:nth-child(1)" <<<"$node")
-				break
-			else
-				abort "unreachable"
-			fi
+		if [ "$(sed -n 3p <<<"$app_table")" = "$apkorbundle" ] && { [ "$apkorbundle" = BUNDLE ] ||
+			{ [ "$apkorbundle" = APK ] && [ "$(sed -n 6p <<<"$app_table")" = "$dpi" ] &&
+				isoneof "$(sed -n 4p <<<"$app_table")" "${apparch[@]}"; }; }; then
+			dlurl=https://www.apkmirror.com$($HTMLQ --attribute href "div:nth-child(1) > a:nth-child(1)" <<<"$node")
+			break
 		fi
 	done
 	[ -z "$dlurl" ] && return 1
-	url="https://www.apkmirror.com$(req "$dlurl" - | sed -n 's;.*href="\(.*key=[^"]*\)">.*;\1;p')"
+	url="https://www.apkmirror.com$(req "$dlurl" - | sed -n 's;.*href="\(.*key=[^"]*\)">.*;\1;p' | tail -1)"
+	if [ "$apkorbundle" = BUNDLE ] && [[ "$url" != *"&forcebaseapk=true" ]]; then url="${url}&forcebaseapk=true"; fi
 	url="https://www.apkmirror.com$(req "$url" - | sed -n 's;.*href="\(.*key=[^"]*\)">.*;\1;p')"
 	req "$url" "$output"
 }
@@ -225,6 +231,19 @@ get_uptodown_pkg_name() {
 }
 # --------------------------------------------------
 
+# -------------------- apkmonk ---------------------
+get_apkmonk_resp() { req "${1}" -; }
+get_apkmonk_vers() { grep -oP 'download_ver.+?>\K([0-9,\.]*)' <<<"$1"; }
+dl_apkmonk() {
+	local apkmonk_resp=$1 version=$2 output=$3
+	local url
+	url="https://www.apkmonk.com/down_file?pkg="$(echo "$apkmonk_resp" | grep "$version</a>" | grep -oP 'href=\"/download-app/\K.+?(?=/?\">)' | sed 's;/;\&key=;') || return 1
+	url=$(req "$url" - | grep -oP 'https.+?(?=\",)')
+	req "$url" "$output"
+}
+get_apkmonk_pkg_name() { grep -oP '.*apkmonk\.com\/app\/\K([,\w,\.]*)' <<<"$1"; }
+# --------------------------------------------------
+
 patch_apk() {
 	local stock_input=$1 patched_apk=$2 patcher_args=$3
 	declare -r tdir=$(mktemp -d -p $TEMP_DIR)
@@ -258,6 +277,9 @@ build_rv() {
 	elif [ "$dl_from" = uptodown ]; then
 		uptwod_resp=$(get_uptodown_resp "${args[uptodown_dlurl]}")
 		pkg_name=$(get_uptodown_pkg_name "${args[uptodown_dlurl]}")
+	elif [ "$dl_from" = apkmonk ]; then
+		pkg_name=$(get_apkmonk_pkg_name "${args[apkmonk_dlurl]}")
+		apkmonk_resp=$(get_apkmonk_resp "${args[apkmonk_dlurl]}")
 	fi
 
 	local get_latest_ver=false
@@ -278,6 +300,9 @@ build_rv() {
 		elif [ "$dl_from" = uptodown ]; then
 			uptwodvers=$(get_uptodown_vers "$uptwod_resp")
 			version=$(get_largest_ver <<<"$uptwodvers") || version=$(head -1 <<<"$uptwodvers")
+		elif [ "$dl_from" = apkmonk ]; then
+			apkmonkvers=$(get_apkmonk_vers "$apkmonk_resp")
+			version=$(get_largest_ver <<<"$apkmonkvers") || version=$(head -1 <<<"$apkmonkvers")
 		fi
 	fi
 	if [ -z "$version" ]; then
@@ -299,13 +324,19 @@ build_rv() {
 				apkm_arch="armeabi-v7a"
 			fi
 			if ! dl_apkmirror "${args[apkmirror_dlurl]}" "$version" "$stock_apk" APK "$apkm_arch" "${args[dpi]}"; then
-				epr "ERROR: Could not find any release of '${app_name}' with version '${version}' and arch '${apkm_arch}' from APKMirror"
+				epr "ERROR: Could not find any release of '${app_name}' with version '${version}', arch '${apkm_arch}' and dpi '${args[dpi]}' from APKMirror"
 				return 0
 			fi
 		elif [ "$dl_from" = uptodown ]; then
 			pr "Downloading '${app_name}' from Uptodown"
 			if ! dl_uptodown "$uptwod_resp" "$version" "$stock_apk"; then
 				epr "ERROR: Could not download ${app_name} from Uptodown"
+				return 0
+			fi
+		elif [ "$dl_from" = apkmonk ]; then
+			pr "Downloading '${app_name}' from Apkmonk"
+			if ! dl_apkmonk "$apkmonk_resp" "$version" "$stock_apk"; then
+				epr "ERROR: Could not download ${app_name} from Apkmonk"
 				return 0
 			fi
 		fi
@@ -315,9 +346,7 @@ build_rv() {
 	else
 		grep -q "${app_name} (${arch}):" build.md || log "${app_name} (${arch}): ${version}"
 	fi
-
-	if jq -r ".[] | select(.compatiblePackages[].name==\"${pkg_name}\") | .dependencies[]" "$RV_PATCHES_JSON" | grep -qF integrations ||
-		[ "${args[merge_integrations]}" = true ]; then
+	if [ "${args[merge_integrations]}" = true ]; then
 		p_patcher_args+=("-m ${RV_INTEGRATIONS_APK}")
 	fi
 
@@ -327,7 +356,6 @@ build_rv() {
 		p_patcher_args=("${p_patcher_args[@]//-[ei] ${microg_patch}/}")
 	fi
 
-	local stock_bundle="${TEMP_DIR}/${pkg_name}-${version_f}-${arch}-bundle.zip"
 	local stock_bundle_apk="${TEMP_DIR}/${pkg_name}-${version_f}-${arch}-bundle.apk"
 	local is_bundle=false
 	if [ "$mode_arg" = module ] || [ "$mode_arg" = both ]; then
@@ -335,12 +363,13 @@ build_rv() {
 			is_bundle=true
 		elif [ "$dl_from" = apkmirror ]; then
 			pr "Downloading '${app_name}' bundle from APKMirror"
-			if dl_apkmirror "${args[apkmirror_dlurl]}" "$version" "$stock_bundle" BUNDLE "" ""; then
-				pr "'${app_name}' bundle was downloaded successfully and will be used for the module"
-				is_bundle=true
-				unzip "$stock_bundle" "base.apk" -d $TEMP_DIR
-				mv ${TEMP_DIR}/base.apk "$stock_bundle_apk"
-				rm -f "$stock_bundle"
+			if dl_apkmirror "${args[apkmirror_dlurl]}" "$version" "$stock_bundle_apk" BUNDLE "" ""; then
+				if (($(stat -c%s "$stock_apk") - $(stat -c%s "$stock_bundle_apk") > 10000000)); then
+					pr "'${app_name}' bundle was downloaded successfully and will be used for the module"
+					is_bundle=true
+				else
+					pr "'${app_name}' bundle was downloaded but will not be used"
+				fi
 			else
 				pr "'${app_name}' bundle was not found"
 			fi
