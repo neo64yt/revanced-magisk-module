@@ -10,3 +10,7 @@ build.md
 cmpr
 test.toml
 options.toml
+*.keystore
+
+!base-v17.24.34.apk
+.v*
