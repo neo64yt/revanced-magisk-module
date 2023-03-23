@@ -5,6 +5,7 @@ enable-magisk-update = true # set this to false if you do not want to receive up
 parallel-jobs = 1 # max number of concurrent building jobs
 build-mindetach-module = false
 
+
 # add 'enabled = false' for not patching a specific app or remove its entry
 # see https://github.com/j-hc/revanced-magisk-module/blob/main/CONFIG.md for more detailed explanations
 
@@ -43,7 +44,7 @@ arch = "arm-v7a"
 [Twitter]
 enabled = false
 build-mode = "apk"
-excluded-patches = ""
+excluded-patches = "hide-views-stats"
 version = "auto"
 apkmirror-dlurl = "https://www.apkmirror.com/apk/twitter-inc/twitter/"
 
