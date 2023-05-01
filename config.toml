@@ -5,7 +5,6 @@ enable-magisk-update = true # set this to false if you do not want to receive up
 parallel-jobs = 1 # max number of concurrent building jobs
 build-mindetach-module = false
 
-
 # add 'enabled = false' for not patching a specific app or remove its entry
 # see https://github.com/j-hc/revanced-magisk-module/blob/main/CONFIG.md for more detailed explanations
 
