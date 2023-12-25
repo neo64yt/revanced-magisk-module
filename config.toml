@@ -17,8 +17,8 @@ apkmirror-dlurl = "https://apkmirror.com/apk/twitter-inc/twitter/"
 [YouTube]
 apkmirror-dlurl = "https://apkmirror.com/apk/google-inc/youtube/"
 build-mode = "both"
-included-patches = "'Custom branding'"
-excluded-patches = "'Tablet mini player' 'Hide captions button' 'Spoof app version' 'Enable tablet layout' 'Custom player overlay opacity' 'Hide info cards' 'Hide filter bar' 'Hide 'Load more' button' 'Disable rolling number animations' 'Hide timestamp' 'Disable suggested video end screen' 'Wide searchbar' 'Always autorepeat' 'Spoof device dimensions'"
+included-patches = "'Custom branding' 'Disable suggested video end screen'"
+excluded-patches = "'Tablet mini player' 'Hide captions button' 'Spoof app version' 'Enable tablet layout' 'Custom player overlay opacity' 'Hide info cards' 'Hide filter bar' 'Hide 'Load more' button' 'Disable rolling number animations' 'Hide timestamp' 'Wide searchbar' 'Always autorepeat' 'Spoof device dimensions'"
 
 [Reddit]
 enabled = false
