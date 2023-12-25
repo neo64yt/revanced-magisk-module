@@ -1,4 +1,5 @@
 [Music]
+enabled = false
 apkmirror-dlurl = "https://apkmirror.com/apk/google-inc/youtube-music/"
 build-mode = "both"
 arch = "arm64-v8a"
