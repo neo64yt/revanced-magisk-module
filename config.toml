@@ -7,6 +7,7 @@ apkmirror-dlurl = "https://apkmirror.com/apk/redditinc/reddit/"
 
 [YouTube]
 apkmirror-dlurl = "https://apkmirror.com/apk/google-inc/youtube/"
+build-mode = "both"
 included-patches = "'Custom branding' 'Change header'"
 excluded-patches = "'Disable precise seeking gesture' 'Seekbar tapping' 'Always repeat' 'Tablet mini player' 'Hide timestamp' 'Hide info cards' 'Hide seekbar' 'Wide searchbar' 'Hide captions button' 'Hide player buttons' 'Alternative thumbnails' 'Spoof app version'"
 
