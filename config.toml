@@ -1,5 +1,4 @@
 enable-magisk-update = true   # set this to false if you do not want to receive updates for the module in magisk app
-parallel-jobs = 1
 
 # add 'enabled = false' for not patching a specific app or remove it from the config
 # see https://github.com/j-hc/revanced-magisk-module/blob/main/CONFIG.md for more detailed explanations
@@ -8,59 +7,63 @@ parallel-jobs = 1
 
 [YouTube]
 build-mode = "both"
-excluded-patches = ""
-included-patches = ""
+included-patches = "'Change header' 'Custom branding'"
+excluded-patches = "'Disable precise seeking gesture' 'Wide searchbar' 'Hide player buttons' 'Hide captions button' 'Hide seekbar' 'Hide info cards' 'Hide timestamp' 'Hide floating microphone button' 'Enable tablet layout' 'Spoof app version' 'Always repeat'"
 version = "auto"
+archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.youtube"
 apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube" # fallback
-# archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.youtube"
 
 [Music]
+enabled = false
 build-mode = "both"
-arch = "both"
+archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.apps.youtube.music"
 apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube-music"
-# archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.apps.youtube.music"
+arch = "both"
 
-[Twitch]
-apkmirror-dlurl = "https://www.apkmirror.com/apk/twitch-interactive-inc/twitch/"
-# archive-dlurl = "https://archive.org/download/jhc-apks/apks/tv.twitch.android.app"
+[Music-Extended]
+enabled = false
+app-name = "Music"
+patches-source = "inotia00/revanced-patches"
+integrations-source = "inotia00/revanced-integrations"
+cli-source = "inotia00/revanced-cli"
+rv-brand = "ReVanced Extended"
+build-mode = "both"
+archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.apps.youtube.music"
+apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube-music"
+arch = "both"
 
-# [Music-Extended]
-# app-name = "Music"
-# patches-source = "inotia00/revanced-patches"
-# cli-source = "inotia00/revanced-cli"
-# rv-brand = "ReVanced Extended"
-# build-mode = "both"
-# arch = "both"
-# apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube-music"
-# # archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.apps.youtube.music"
-
-# [YouTube-Extended]
-# app-name = "YouTube"
-# patches-source = "inotia00/revanced-patches"
-# cli-source = "inotia00/revanced-cli"
-# rv-brand = "ReVanced Extended"
-# build-mode = "both"
-# apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube"
-# # archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.youtube"
-
-# [Reddit-Extended]
-# patches-source = "inotia00/revanced-patches"
-# cli-source = "inotia00/revanced-cli"
-# rv-brand = "ReVanced Extended"
-# apkmirror-dlurl = "https://www.apkmirror.com/apk/redditinc/reddit/"
-# # archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.reddit.frontpage"
+[YouTube-Extended]
+enabled = false
+app-name = "YouTube"
+patches-source = "inotia00/revanced-patches"
+integrations-source = "inotia00/revanced-integrations"
+cli-source = "inotia00/revanced-cli"
+rv-brand = "ReVanced Extended"
+build-mode = "both"
+archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.google.android.youtube"
+apkmirror-dlurl = "https://www.apkmirror.com/apk/google-inc/youtube"
 
 [Twitter]
 enabled = false
-apkmirror-dlurl = "https://www.apkmirror.com/apk/x-corp/twitter"
 build-mode = "apk"
-dpi = "120-640dpi"
-# archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.twitter.android"
+archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.twitter.android"
+
+[Twitch]
+enabled = false
+archive-dlurl = "https://archive.org/download/jhc-apks/apks/tv.twitch.android.app"
 
 [TikTok]
 enabled = false
-# archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.zhiliaoapp.musically"
+archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.zhiliaoapp.musically"
 included-patches = "'SIM spoof'"
+
+[Reddit-Extended]
+enabled = false
+patches-source = "inotia00/revanced-patches"
+integrations-source = "inotia00/revanced-integrations"
+cli-source = "inotia00/revanced-cli"
+rv-brand = "ReVanced Extended"
+archive-dlurl = "https://archive.org/download/jhc-apks/apks/com.reddit.frontpage"
 
 [Messenger]
 enabled = false
